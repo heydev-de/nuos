@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /nuos/module/
+Allow: /nuos/module/download.php
+Allow: /nuos/module/rss.php
+Allow: /nuos/module/sitemap.php
+
+# set to your preferred domain
+# Sitemap: https://example.com/sitemap.xml

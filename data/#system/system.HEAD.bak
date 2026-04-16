@@ -1,0 +1,7 @@
+log:=limit=730;anonymize=1;privacy=1;bot_limit=5;bad_bot_limit=15;bad_bot_delay=5;bad_bot_block=1;bot_reset=14;bot_retention=90
+mysql:=host=localhost;database=nuos_release;user=root;password=none;name=mysql
+setup:=done=1
+search:=difference=2
+image:=preference=jpg;resolution=1920x1080;daemon=1
+language:=default=de,en
+update:=check_time=1752622239

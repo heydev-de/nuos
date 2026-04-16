@@ -1,0 +1,107 @@
+<div class="backlink">
+
+  <strong>%%l_thanks_for_the_link%%:</strong><br>
+
+<CMS:nocache>
+<?php
+
+//settings
+$number_of_backlinks        = 5;
+$time_frame_in_days         = 30;
+$update_interval_in_seconds = 86400; //24 hour
+$link_limit_per_page        = 100;
+$exclusion_list             = array(
+    "%://" . CMS_DOMAIN . "/%",
+    "%://www.google.%");
+
+//check timeout
+$time = time();
+
+if (cms_cache_time("backlink.text") > ($time - $update_interval_in_seconds))
+{
+    echo(cms_cache("backlink.text"));
+    return TRUE;
+};
+
+//update file modification time
+//so other instances will use the cache
+//instead of trying to update, too
+cms_cache_touch("backlink.text");
+
+//retrieve referers
+$query =
+    "SELECT referrer AS 'url', " .
+        "COUNT(DISTINCT userid) AS 'count' " .
+    "FROM cms_log_access " .
+    "WHERE datetime>(UTC_TIMESTAMP() - INTERVAL $time_frame_in_days DAY) " .
+        "AND bot<1 " .
+        "AND referrer!='' " .
+        "AND referrer NOT LIKE '" .
+        implode("' AND referrer NOT LIKE '", sqlesc($exclusion_list)) . "' " .
+    "GROUP BY url " .
+    "ORDER BY count DESC " .
+    "LIMIT 100";
+
+$mysql  = new mysql();
+$result = mysql_query($query);
+$page   = preg_quote(CMS_ROOT_URL, "/");
+$buffer = "";
+$i      = 0;
+
+cms_load("html");
+
+while ($resultrow = mysql_fetch_assoc($result))
+{
+    if ($i >= $number_of_backlinks) break; //limit reached
+
+    $url   = $resultrow["url"];
+    $count = $resultrow["count"];
+
+    //get external referer info
+    $info = html_page_info($url);
+    if ($info === FALSE) continue; //cannot read
+
+    $title = $info["title"];
+    $flag  = FALSE;
+    $_i    = 0;
+
+    //check for inbound link
+    foreach ($info["links"] AS $value)
+    {
+        if ($_i++ >= $link_limit_per_page) break; //too many links
+
+        $_url = $value["url"];
+        $text = $value["text"];
+        if ($flag = (bool)preg_match("/^$page/i", "$_url/")) break;
+    };
+
+    if ($flag === FALSE) continue; //no inbound link
+
+    $text = strabridge(htmltoplain($text), 80);
+
+    $buffer .=
+        "<p>" .
+        (nstre($text) ? "\"" . x($text) . "\"<br>" : "") .
+        "<small>" .
+        "<a href=\"" . x($url) . "\" " .
+           "title=\"" . x($title) . "\" " .
+           "onclick=\"window.open(this.href);return false;\">" .
+        x(strabridge($title)) .
+        "<!-- x($count) -->" .
+        "</a>" .
+        "</small>" .
+        "</p>";
+
+    $i++;
+};
+
+//write cache
+cms_cache("backlink.text", "$buffer ", TRUE);
+
+//output
+echo($buffer);
+
+?>
+</CMS:nocache>
+
+</div>

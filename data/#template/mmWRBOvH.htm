@@ -1,0 +1,404 @@
+<CMS:edit option="repeat value">
+<div class="module-settings">
+
+  <table>
+
+    <CMS:edit option="repeat">
+    <tr>
+      <td>%%l_number_of_slides%%:</td>
+      <td><CMS:repeat id="r1" default="3"></CMS:repeat></td>
+    </tr>
+    </CMS:edit>
+
+    <CMS:edit option="value">
+    <tr>
+      <td>%%l_slides_in_viewport%%:</td>
+      <td><CMS:value id="slider_display" default="1"/></td>
+    </tr>
+
+    <tr>
+      <td>%%l_breakpoint_for_single_view_in_px%%:</td>
+      <td><CMS:value id="slider_breakpoint" default="640"/></td>
+    </tr>
+
+    <tr>
+      <td>%%l_speed_in_ms%% (%%l_zero_equals_disabled%%):</td>
+      <td><CMS:value id="slider_speed" default="7500"/></td>
+    </tr>
+    </CMS:edit>
+
+  </table>
+
+</div>
+</CMS:edit>
+
+<CMS:noedit>
+
+<?php
+
+//get number of used slides
+$repeat  = $cms_template_document->get($cms_template_base_id . "r1", "repeat");
+$repeat  = max((int)$repeat, 1);
+$repeat += 5;
+$count   = 0;
+for ($i = 5; $i < $repeat; $i++)
+    if ($cms_template_document->get($cms_template_base_id . "r1.$i", "template") !== NULL) $count++;
+
+//get number of simultaneously displayed slides
+$display = l($cms_template_document->get($cms_template_base_id . "slider_display", "value"));
+$display = min(max((int)$display, 1), $count);
+
+//get breakpoint
+$breakpoint = l($cms_template_document->get($cms_template_base_id . "slider_breakpoint", "value"));
+$breakpoint = max((int)$breakpoint, 0);
+
+//get speed
+$speed = l($cms_template_document->get($cms_template_base_id . "slider_speed", "value"));
+$speed = max((int)$speed, 0);
+
+//prepare frequent values
+$id       = "slider-$cms_template_temp_id-";
+$temp_id  = x($cms_template_temp_id);
+$_temp_id = q($cms_template_temp_id);
+
+//initialize
+$n = 0;
+
+?>
+
+<div class="slider">
+
+  <div id="slider-<?=$temp_id?>"
+       class="slider-container">
+
+</CMS:noedit>
+
+    <CMS:repeat id="r1" edit="off" default="3">
+    <CMS:cblock>
+    <CMS:noedit>
+
+    <div id="<?=x($id . ++$n)?>" class="slider-slide">
+
+    </CMS:noedit>
+
+    <CMS:template title="%%l_slide_content%%"/>
+
+    <CMS:noedit>
+
+<?php
+
+$id_prev = $id . (($n > 1) ? $n - 1 : $count);
+$id_next = $id . (($n < $count) ? $n + 1 : 1);
+
+?>
+
+      <a href="<?=x(translate_url("#$id_prev"))?>"
+         title="%%l_previous%%"
+         class="slider-prev"
+         data-scrolltotarget="off">
+        %%l_previous%%
+      </a>
+
+      <a href="<?=x(translate_url("#$id_next"))?>"
+         title="%%l_next%%"
+         class="slider-next"
+         data-scrolltotarget="off">
+        %%l_next%%
+      </a>
+
+    </div>
+
+    </CMS:noedit>
+
+    </CMS:cblock>
+    </CMS:repeat>
+
+<CMS:noedit>
+
+  </div>
+
+  <div id="slider-<?=$temp_id?>-control" class="slider-control"><?php
+
+//create control buttons
+for ($i = 1; $i <= $count; $i++)
+{
+    $_id = x($id . $i);
+    echo("<a id=\"$_id-button\" " .
+            "href=\"" . x(translate_url("#$_id")) . "\" " .
+            "data-slider-target=\"$_id\" " .
+            "data-scrolltotarget=\"off\">" .
+         x($i) .
+         "</a>");
+};
+
+?></div>
+
+</div>
+
+<CMS:value id="slider_flag" edit="off"/>
+
+<?php
+
+$cms_template_document->set($cms_template_base_id . "slider_flag", "value", defined("SLIDER_FLAG") ? "1" : "");
+if (! defined("SLIDER_FLAG")) define("SLIDER_FLAG", 1);
+
+?>
+
+<CMS:calt idref="slider_flag">
+<script>
+class slider
+{
+    container  = null;
+    control    = null;
+    target     = null;
+    step       = 15;
+    _step      = 0;
+    count      = 1;
+    display    = 1;
+    _display   = 1;
+    breakpoint = 640;
+    speed      = 0;
+    _pause     = false;
+    time       = new Date().getTime();
+
+    constructor(container,
+                control,
+                count,
+                display,
+                breakpoint,
+                speed)
+    {
+        this.container  = container;
+        this.control    = control;
+        this.count      = count;
+        this.display    = display;
+        this.breakpoint = breakpoint;
+        this.speed      = speed;
+
+        var _this  = this;
+        var parent = this.container.parentElement;
+        var list   = null;
+        var item   = null;
+        var i      = 0;
+
+        list = container.children;
+        for (i = 0; i < list.length; i++)
+        {
+            item = list[i].lastElementChild;
+            fx_event_listen(item, "click", function(e) { e.preventDefault(); _this.next(); }, false);
+            item = item.previousElementSibling;
+            fx_event_listen(item, "click", function(e) { e.preventDefault(); _this.prev(); }, false);
+        };
+
+        list = control.getElementsByTagName("a");
+        for (i = 0; i < list.length; i++)
+            fx_event_listen(list[i], "click", function(e) {
+                e.preventDefault(); _this.scroll(this.getAttribute("data-slider-target")); }, false);
+
+        fx_event_listen(parent,         "mouseenter",    function() { _this.pause(true); });
+        fx_event_listen(parent,         "mouseleave",    function() { _this.pause() });
+        fx_event_listen(parent,         "touchstart",    function() { _this.pause(true); });
+        fx_event_listen(parent,         "touchend",      function() { _this.pause() });
+        fx_event_listen(this.container, "scroll",        function() { _this.fix(); });
+        fx_event_listen(                "window_resize", function() { _this.fix(); });
+
+        fx_swipe(this.container, function(object, dir) { _this.swipe(dir); });
+
+        this.snap();
+        this.fix();
+        if (this.speed > 0) this.auto();
+    };
+
+    active()
+    {
+        var scroll    = this.container.scrollLeft;
+        var slide     = this.container.children;
+        var _slide    = null;
+        var target    = null;
+        var offset    = 0;
+        var distance  = 0;
+        var _distance = Number.MAX_VALUE;
+
+        for (var i = 0; _slide = slide[i++]; )
+        {
+            offset   = _slide.offsetLeft;
+            distance = Math.abs(scroll - offset);
+
+            if (distance == 0) return _slide;
+
+            if (distance <= _distance)
+            {
+                _distance = distance;
+                target    = _slide;
+                continue;
+            };
+
+            break;
+        };
+
+        return target;
+    };
+
+    scroll()
+    {
+        if (arguments.length > 0)
+        {
+            this.target = (typeof arguments[0] == "object") ?
+                          arguments[0] : document.getElementById(arguments[0]);
+            this._step  = 0;
+
+            var control = this.control.children;
+            var button  = null;
+            for (var i = 0; button = control[i]; i++)
+                button.className = (button.id == this.target.id + "-button") ? "slider-active" : "";
+
+            var target = this.target;
+
+            for (var i = 1; i < this._display; i++)
+            {
+                target = target.nextElementSibling;
+
+                if (target == null)
+                {
+                    target = this.container.firstElementChild;
+                    this.container.appendChild(target);
+                    this.container.scrollLeft = this.active.offsetLeft;
+                };
+            };
+        };
+
+        var offset = this.target.offsetLeft;
+        var scroll = this.container.scrollLeft;
+        var diff   = offset - scroll;
+
+        if (Math.abs(diff) < 0.5) { this._step = 0; this.fix(); return; };
+
+        var step = this.step - this._step++;
+        var pace = diff / step;
+
+        this.container.scrollLeft += pace;
+
+        this.time = new Date().getTime();
+
+        if (step == 1) { this._step = 0; };
+
+        var _this = this;
+        fx_animation_frame(function() { _this.scroll(); }, 25);
+    };
+
+    prev()
+    {
+        var active  = this.active();
+        var target  = active;
+
+        for (var i = 0; i < this._display; i++)
+        {
+            target = target.previousElementSibling;
+
+            if (target == null)
+            {
+                target = this.container.lastElementChild;
+                this.container.insertBefore(target, this.container.firstElementChild);
+                this.container.scrollLeft = active.offsetLeft;
+            };
+        };
+
+        this.scroll(target);
+    };
+
+    next()
+    {
+        var active  = this.active();
+        var target  = active;
+
+        for (var i = 0; i < this._display; i++)
+        {
+            target = target.nextElementSibling;
+
+            if (target == null)
+            {
+                target = this.container.firstElementChild;
+                this.container.appendChild(target);
+                this.container.scrollLeft = active.offsetLeft;
+            };
+        };
+
+        this.scroll(target);
+    };
+
+    swipe(dir)
+    {
+        if (dir == "r")      this.prev();
+        else if (dir == "l") this.next();
+    };
+
+    pause()
+    {
+        this._pause = arguments.length > 0;
+    };
+
+    snap()
+    {
+        if ((this._pause == false) && (this._step == 0))
+            this.scroll(this.active());
+
+        var _this = this;
+        fx_animation_frame(function() { _this.snap(); }, 1000);
+    };
+
+    auto()
+    {
+        if ((this._pause == false) && (this._step == 0) &&
+            ((new Date().getTime() - this.time) > this.speed))
+            this.next();
+
+        var _this = this;
+        fx_animation_frame(function() { _this.auto(); }, this.speed / 2.9);
+    };
+
+    fix()
+    {
+        var width     = fx_width(this.container, true);
+        this._display = (width <= this.breakpoint) ? 1 : this.display;
+        width         = width / this._display * (this._display - 1);
+        var scroll    = this.container.scrollLeft;
+        var slide     = this.container.children;
+        var _slide    = null;
+        var control   = this.control.children;
+        var offset    = 0;
+        var _button   = null;
+
+        for (var i = 0; _slide = slide[i]; i++)
+        {
+            _slide.style.flexBasis = (100 / this._display) + "%";
+
+            while (control[i].id != _slide.id + "-button")
+                this.control.appendChild(control[i]);
+
+            control[i].style.display = (i > (this.count - this._display)) ? "none" : "inline-block";
+
+            offset                = _slide.offsetLeft;
+            _button               = _slide.lastElementChild;
+            _button.style.display = (offset < (scroll + width - 0.5)) ? "none" : "block";
+            _button               = _button.previousElementSibling;
+            _button.style.display = (offset > (scroll + 0.5)) ? "none" : "block";
+
+        };
+    };
+};
+</script>
+</CMS:calt>
+
+<script>
+fx_event_listen("window_load", function()
+{
+    new slider(
+        document.getElementById("slider-<?=$_temp_id?>"),
+        document.getElementById("slider-<?=$_temp_id?>-control"),
+        <?=$count?>,
+        <?=$display?>,
+        <?=$breakpoint?>,
+        <?=$speed?>);
+});
+</script>
+</CMS:noedit>

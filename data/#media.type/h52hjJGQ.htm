@@ -1,0 +1,18 @@
+<script>
+load_css("3rdparty/video-js-8.6.1/video-js.min.css");
+</script>
+<script src="3rdparty/video-js-8.6.1/video.min.js"></script>
+
+<video id="%id%"
+       class="video-js[ %class%]"
+       controls
+       preload="metadata"[
+       height="%height%"][
+       width="%width%"]
+       title="%title%"
+       aria-label="%alt%"[
+       style="%style%"]
+       data-setup="{}">
+  <source src="%src%" type="%type%">
+  <a href="%src%">%alt%</a>
+</video>
