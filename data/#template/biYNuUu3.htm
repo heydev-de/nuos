@@ -1,0 +1,216 @@
+<CMS:value id="slider_transition" edit="off"/>
+
+<?php
+
+//reveal transition type
+$range      = $cms_template_base_id . "slider_transition";
+$transition = l($cms_template_document->get($range, "value"));
+
+?>
+
+<CMS:edit option="repeat value">
+<div class="module-settings">
+
+  <table>
+
+    <CMS:edit option="repeat">
+    <tr>
+      <td>%%l_number_of_slides%%:</td>
+      <td><CMS:repeat id="r1" default="3"></CMS:repeat></td>
+    </tr>
+    </CMS:edit>
+
+    <CMS:edit option="value">
+    <tr>
+      <td>%%l_transition%%:</td>
+      <td>
+
+        <select id="slider-transition-<?=x($cms_template_temp_id)?>">
+          <option value=""<?=stre($transition) ? " selected" : ""?>>%%l_none%%</option>
+          <option value="slide"<?=streq($transition, "slide") ? " selected" : ""?>>%%l_slide%%</option>
+          <option value="fade"<?=streq($transition, "fade") ? " selected" : ""?>>%%l_fade%%</option>
+          <option value="zoom"<?=streq($transition, "zoom") ? " selected" : ""?>>%%l_zoom%%</option>
+          <option value="flip"<?=streq($transition, "flip") ? " selected" : ""?>>%%l_flip%%</option>
+          <option value="wipe"<?=streq($transition, "wipe") ? " selected" : ""?>>%%l_wipe%%</option>
+        </select>
+
+<script>
+
+fx_event_listen(document.getElementById("slider-transition-<?=q($cms_template_temp_id)?>"), "change", function()
+{
+    let url = "<?=q(CMS_ACTIVE_URL .
+                    cms_param(array("range" => $range,
+                                    "type"  => "value",
+                                    "value" => "\x1B%value%",
+                                    "left"  => "\x1B%left%",
+                                    "top"   => "\x1B%top%")))?>";
+    content_edit_command(url.replace(/%value%/,
+                         encodeURIComponent(this.value)));
+});
+
+</script>
+
+      </td>
+    </tr>
+
+    <tr>
+      <td>%%l_interval_in_ms%% (%%l_zero_equals_disabled%%):</td>
+      <td><CMS:value id="slider_interval" default="7500"/></td>
+    </tr>
+    </CMS:edit>
+
+  </table>
+
+</div>
+</CMS:edit>
+
+<CMS:noedit>
+<div id="slider-<?=x($cms_template_temp_id)?>" class="slider">
+
+  <div class="slider-container<?=x(nstre($transition) ? " slider-transition-$transition" : "")?>">
+
+</CMS:noedit>
+
+    <CMS:repeat id="r1" edit="off" default="3">
+    <CMS:cblock>
+    <div>
+
+      <CMS:template title="%%l_slide_content%%"/>
+
+    </div>
+    </CMS:cblock>
+    </CMS:repeat>
+
+<CMS:noedit>
+
+  </div>
+
+  <button class="slider-prev">%%l_previous%%</button>
+  <button class="slider-next">%%l_next%%</button>
+  <div class="slider-control"></div>
+
+</div>
+
+<?php
+
+//interval between slides
+$interval = l($cms_template_document->get($cms_template_base_id . "slider_interval", "value"));
+$interval = max((int)$interval, 0);
+
+//block javascript redefinition
+$flag = defined("SLIDER_FLAG");
+$cms_template_document->set($cms_template_base_id . "slider_flag", "value", $flag);
+if (! $flag) define("SLIDER_FLAG", 1);
+
+?>
+
+<CMS:calt idref="slider_flag">
+<script>
+
+class slider
+{
+    object    = null;
+    container = null;
+    control   = null;
+    slides    = [];
+    buttons   = [];
+    current   = 0;
+    before    = 0;
+    interval  = 0;
+
+    constructor(object, interval = 0)
+    {
+        this.object    = object;
+        this.container = object.querySelector(":scope > DIV.slider-container");
+        this.control   = object.querySelector(":scope > DIV.slider-control");
+
+        fx_event_listen(object.querySelector(":scope > BUTTON.slider-prev"), "click", () => this.prev());
+        fx_event_listen(object.querySelector(":scope > BUTTON.slider-next"), "click", () => this.next());
+
+        this.container.querySelectorAll(":scope > DIV").forEach(slide =>
+        {
+            let n = this.slides.length;
+            this.slides.push(slide);
+
+            let button = document.createElement("button");
+            button.textContent = n + 1;
+            this.buttons.push(button);
+
+            this.control.appendChild(button);
+            fx_event_listen(button, "click", () => { this.to(n); });
+        });
+
+        this.container.firstElementChild.classList.add("active");
+        this.control.firstElementChild.classList.add("active");
+
+        fx_swipe(this.container, (object, dir) => { this.swipe(dir); });
+
+        if (interval > 0)
+        {
+            this.interval = interval;
+            setTimeout(() => this.auto(), this.interval);
+        };
+    };
+
+    prev()
+    {
+        this.to(this.current - 1);
+    };
+
+    next()
+    {
+        this.to(this.current + 1);
+    };
+
+    swipe(dir)
+    {
+        if      (dir === "r") this.prev();
+        else if (dir === "l") this.next();
+    };
+
+    to(n)
+    {
+        if (n === this.current) return;
+        this.object.style.setProperty("--slider-direction", (n > this.current) ? 1 : -1);
+
+        let c = this.slides.length;
+        if      (n <  0) n += c;
+        else if (n >= c) n  = 0;
+
+        let slide = this.slides[this.before];
+        slide.classList.remove("before");
+
+        slide = this.slides[this.current];
+        slide.classList.remove("active");
+        slide.classList.add("before");
+
+        this.slides[n].classList.add("active");
+
+        let button = this.buttons[this.current];
+        button.classList.remove("active");
+        this.buttons[n].classList.add("active");
+
+        this.before  = this.current;
+        this.current = n;
+    };
+
+    auto()
+    {
+        if (! this.object.matches(":focus-within, :hover")) this.next();
+        setTimeout(() => this.auto(), this.interval);
+    };
+};
+
+</script>
+</CMS:calt>
+
+<script>
+
+fx_event_listen("window_load", () =>
+{
+    let object = document.getElementById("slider-<?=q($cms_template_temp_id)?>");
+    new slider(object, <?=$interval?>);
+});
+
+</script>
+</CMS:noedit>
