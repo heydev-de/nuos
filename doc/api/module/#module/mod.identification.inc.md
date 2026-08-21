@@ -1,0 +1,272 @@
+# PWNC API Documentation
+
+[← Index](../../README.md) | [`module/#module/mod.identification.inc`](https://github.com/heydev-de/pwnc/blob/main/nuos/module/%23module/mod.identification.inc)
+
+- **Version:** `26.6.20.0`
+- **Website:** [pwnc.it](https://pwnc.it)
+- **Repository:** [GitHub](https://github.com/heydev-de/pwnc)
+
+---
+
+## Module: Identification (`mod.identification.inc`)
+
+This module provides user authentication and password recovery functionality for the PWNC Web Platform. It handles:
+
+- **User login** with secure password hashing (SHA-256 with optional MD5 fallback)
+- **Login attempt throttling** to prevent brute-force attacks
+- **Password recovery** via email with CAPTCHA verification
+- **Support for multiple user backends** (system permissions and profile-based users)
+
+The module integrates with the platform's core utilities for data storage, email delivery, and URL generation.
+
+---
+
+### Global Variables
+
+| Name | Default/Value | Description |
+|------|---------------|-------------|
+| `$location` | `NULL` | Redirect target after successful login. Falls back to `cms_url()`. |
+| `$identification_message` | `NULL` | Controls module behavior: `"__recover"` (process recovery), `"_recover"` (initiate recovery), `"recover"` (display recovery form). |
+| `$identification_user` | `NULL` | User identifier (username) for login/recovery. |
+| `$identification_email` | `NULL` | User email (unused in current logic). |
+| `$identification_captcha_key` | `NULL` | CAPTCHA input from user. |
+| `$identification_captcha_code` | `NULL` | Expected CAPTCHA verification code. |
+| `$identification_code` | `NULL` | Recovery code for password reset. |
+| `$recover_message` | Predefined HTML | Feedback message for recovery form. |
+
+---
+
+### Core Logic Flow
+
+1. **Password Recovery (`__recover`)**
+   - Validates a recovery code.
+   - Resets the user's password and sends it via email.
+   - Supports both system permissions (`#system/permission`) and profile-based users (`profile` class).
+
+2. **Initiate Recovery (`_recover`)**
+   - Validates CAPTCHA (if enabled).
+   - Generates a recovery code and emails it to the user.
+
+3. **Login Form**
+   - Displays a login form with username/password fields.
+   - Enforces login attempt limits (configurable via `CMS_LOGIN_ATTEMPT_MAX` and `CMS_LOGIN_BLOCK_TIME`).
+   - Supports legacy MD5 password hashing for backward compatibility.
+
+---
+
+### Functions and Methods
+
+#### **`verify_email($email)`**
+*(Implicitly used, not defined in this file)*
+
+**Purpose:**
+Validates an email address format.
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `$email` | `string` | Email address to validate. |
+
+**Return Values:**
+- `TRUE` if the email is valid.
+- `FALSE` otherwise.
+
+**Usage Context:**
+Used during password recovery to ensure the user has a valid email address.
+
+---
+
+#### **Password Recovery Workflow**
+
+##### **Case: `__recover`**
+**Purpose:**
+Processes a password recovery request using a valid recovery code.
+
+**Inner Mechanisms:**
+1. Retrieves recovery data (user and type) from `#system/identification.recover`.
+2. Deletes the recovery code after use.
+3. Resets the password for the user in either:
+   - System permissions (`#system/permission`).
+   - Profile-based storage (`profile` class).
+4. Sends the new password via email using the `smtp` module.
+
+**Example:**
+```php
+// Trigger recovery by visiting:
+// cms_url(["identification_message" => "__recover", "identification_code" => "VALID_CODE"])
+```
+
+---
+
+##### **Case: `_recover`**
+**Purpose:**
+Initiates a password recovery request.
+
+**Inner Mechanisms:**
+1. Validates CAPTCHA (if enabled).
+2. Checks for the user in:
+   - System permissions (`#system/permission`).
+   - Profile-based storage (`profile` class).
+3. Generates a recovery code and stores it in `#system/identification.recover` with a 1-hour expiry.
+4. Sends a recovery email with a link containing the code.
+
+**Example:**
+```php
+// Submit a recovery request:
+<form method="post" action="<?= x(cms_url()) ?>#identification">
+    <input name="identification_message" value="_recover" type="hidden">
+    <input name="identification_user" type="text" required>
+    <input name="identification_captcha_key" type="text" required> <!-- If CAPTCHA enabled -->
+    <button type="submit">Recover Password</button>
+</form>
+```
+
+---
+
+#### **Login Form Rendering**
+
+**Purpose:**
+Renders the login form with:
+- Username/password fields.
+- Legacy password checkbox (for MD5 fallback).
+- Password recovery link.
+- Login attempt throttling.
+
+**Inner Mechanisms:**
+1. Checks for failed login attempts and blocks the user if the limit is exceeded.
+2. Uses JavaScript to hash the password client-side (SHA-256 with optional MD5 fallback).
+3. Falls back to server-side processing if JavaScript is disabled.
+
+**Example:**
+```php
+// Render the login form:
+echo("<section id=\"identification\" class=\"identification\">");
+insert("top");
+// ... (form HTML as generated by the module)
+echo("</section>");
+```
+
+---
+
+### JavaScript Functions
+
+#### **`identification_submit()`**
+**Purpose:**
+Handles form submission for login, including password hashing.
+
+**Inner Mechanisms:**
+1. Checks if the "legacy password" checkbox is checked.
+2. Loads the MD5 library if needed.
+3. Calls `_identification_submit()` with the legacy flag.
+
+**Example:**
+```javascript
+// Triggered by form onsubmit:
+<form onsubmit="event.preventDefault(); return identification_submit();">
+```
+
+---
+
+#### **`_identification_submit(legacy)`**
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `legacy` | `boolean` | If `true`, uses MD5 hashing before SHA-256. |
+
+**Purpose:**
+Hashes the password and submits the form.
+
+**Inner Mechanisms:**
+1. Retrieves the password and salt.
+2. Converts the password to UTF-8 binary.
+3. Hashes the password with SHA-256 (or MD5 + SHA-256 if `legacy` is `true`).
+4. Submits the form.
+
+**Example:**
+```javascript
+// Hash and submit:
+_identification_submit(false); // SHA-256 only
+_identification_submit(true);  // MD5 + SHA-256
+```
+
+---
+
+### Usage Examples
+
+#### 1. **Password Recovery**
+**Scenario:**
+A user forgets their password and requests a reset.
+
+**Steps:**
+1. User visits the recovery form:
+   ```php
+   cms_url(["identification_message" => "recover"]);
+   ```
+2. User submits their username and CAPTCHA (if enabled).
+3. System sends a recovery email with a link:
+   ```php
+   cms_url(["identification_message" => "__recover", "identification_code" => "GENERATED_CODE"]);
+   ```
+4. User clicks the link, and the system resets their password.
+
+---
+
+#### 2. **User Login**
+**Scenario:**
+A user logs into the system.
+
+**Steps:**
+1. Render the login form (handled automatically by the module).
+2. User enters their username and password.
+3. Client-side JavaScript hashes the password and submits the form.
+4. Server validates the credentials and redirects to `$location`.
+
+**Example Form Submission:**
+```html
+<form id="identification-form" method="post" action="<?= x(cms_url()) ?>">
+    <input name="cms_login_user" type="text" required>
+    <input name="cms_login_password" type="password" required>
+    <input id="identification-legacy" type="checkbox" value="1"> <!-- Optional -->
+    <button type="submit">Login</button>
+</form>
+```
+
+---
+
+#### 3. **Login Attempt Throttling**
+**Scenario:**
+A user exceeds the maximum allowed login attempts.
+
+**Configuration:**
+- `CMS_LOGIN_ATTEMPT_MAX`: Maximum failed attempts before blocking (e.g., `5`).
+- `CMS_LOGIN_BLOCK_TIME`: Block duration in seconds (e.g., `3600` for 1 hour).
+
+**Example:**
+```php
+// After 5 failed attempts:
+echo("<section id=\"identification\">");
+echo(sprintf(CMS_L_MOD_IDENTIFICATION_024, 60)); // "Blocked for 60 minutes."
+echo("</section>");
+```
+
+---
+
+### Dependencies
+
+| Module/Class | Purpose |
+|--------------|---------|
+| `data` | Stores and retrieves recovery codes and user data. |
+| `captcha` | Validates CAPTCHA input during recovery. |
+| `smtp` | Sends recovery emails. |
+| `profile` | Manages profile-based users (optional). |
+| `cms_cache` | Tracks failed login attempts. |
+| `cms_url` | Generates URLs for forms and recovery links. |
+| `unique_id` | Generates recovery codes and temporary passwords. |
+| `hash64` | Hashes passwords for system permissions. |
+| `sha256.js` | Client-side password hashing. |
+| `md5.js` | Optional legacy password hashing. |
+
+
+<!-- HASH:4038159e019ca9268fc37d9a5be31de7 -->
