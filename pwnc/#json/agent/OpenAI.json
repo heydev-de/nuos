@@ -1,0 +1,80 @@
+{
+    "version": 1,
+
+    "url": "%endpoint%",
+
+    "header": {
+        "content-type": "application/json",
+        "[authorization]": "%authorization%"
+    },
+
+    "request": {
+        "model": "%model%",
+        "[max_tokens]": "%max_tokens%",
+        "[temperature]": "%temperature%",
+        "messages": "%message%",
+        "[tools]": "%tool%"
+    },
+
+    "user": {
+        "role": "user",
+        "content": "%text%"
+    },
+
+    "assistant": "%reply%",
+
+    "tool": {
+        "type": "function",
+        "function": {
+            "name": "%name%",
+            "description": "%description%",
+            "parameters": "%schema%"
+        }
+    },
+
+    "value": {
+        "reason": "choices/0/finish_reason",
+        "reply": "choices/0/message",
+        "call": "choices/0/message/tool_calls",
+        "error": "error/message"
+    },
+
+    "action": {
+        "stop": "stop",
+        "content_filter": "stop",
+        "length": "resume",
+        "tool_calls": "tool"
+    },
+
+    "call": {
+        "id": "id",
+        "name": "function/name",
+        "argument": "function/arguments"
+    },
+
+    "result": {
+        "block": {
+            "role": "tool",
+            "tool_call_id": "%id%",
+            "content": "%content%"
+        }
+    },
+
+    "system": {
+        "role": "system",
+        "content": "%system%"
+    },
+
+    "default": {
+        "endpoint": "https://api.openai.com/v1",
+        "max_tokens": 16384
+    },
+
+    "required": [
+        "model",
+        "api_key"
+    ],
+
+    "prefill": false,
+    "overflow": "/context length|maximum context|too long|reduce the length/i"
+}

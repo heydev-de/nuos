@@ -1,0 +1,111 @@
+{
+    "version": 1,
+
+    "url": "%endpoint%/models/%model%:generateContent",
+
+    "header": {
+        "content-type": "application/json",
+        "x-goog-api-key": "%api_key%"
+    },
+
+    "request": {
+        "contents": "%message%",
+        "[systemInstruction]": "%instruction%",
+        "[tools]": [
+            {
+                "[functionDeclarations]": "%tool%"
+            }
+        ],
+        "[generationConfig]": {
+            "[maxOutputTokens]": "%max_tokens%",
+            "[temperature]": "%temperature%"
+        }
+    },
+
+    "instruction": {
+        "parts": [
+            {
+                "text": "%system%"
+            }
+        ]
+    },
+
+    "user": {
+        "role": "user",
+        "parts": [
+            {
+                "text": "%text%"
+            }
+        ]
+    },
+
+    "assistant": "%reply%",
+
+    "tool": {
+        "name": "%name%",
+        "description": "%description%",
+        "parameters": "%schema%"
+    },
+
+    "value": {
+        "reason": "candidates/0/finishReason",
+        "reply": "candidates/0/content",
+        "call": "candidates/0/content/parts",
+        "error": "error/message"
+    },
+
+    "action": {
+        "STOP": "stop",
+        "MAX_TOKENS": "resume",
+        "SAFETY": "stop",
+        "RECITATION": "stop",
+        "LANGUAGE": "stop",
+        "BLOCKLIST": "stop",
+        "PROHIBITED_CONTENT": "stop",
+        "SPII": "stop",
+        "IMAGE_SAFETY": "stop",
+        "MALFORMED_FUNCTION_CALL": "stop",
+        "UNEXPECTED_TOOL_CALL": "stop",
+        "OTHER": "stop"
+    },
+
+    "call": {
+        "id": "functionCall/id",
+        "name": "functionCall/name",
+        "argument": "functionCall/args"
+    },
+
+    "result": {
+        "message": {
+            "role": "user",
+            "parts": "%block%"
+        },
+        "block": {
+            "functionResponse": {
+                "[id]": "%id%",
+                "name": "%name%",
+                "response": {
+                    "result": "%content%"
+                }
+            }
+        }
+    },
+
+    "compact": {
+        "list": "parts",
+        "text": "functionResponse/response/result"
+    },
+
+    "default": {
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+        "max_tokens": 16384
+    },
+
+    "required": [
+        "model",
+        "api_key"
+    ],
+
+    "prefill": false,
+    "overflow": "/token count|exceeds the maximum|input is too long|too many tokens/i"
+}
